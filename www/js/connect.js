@@ -363,7 +363,7 @@ function connectionManager() {
 		if (true){
 			//console.log("Sending polling request to get meter data...")
 			var Http = new XMLHttpRequest();
-			var url='http://76.247.180.62/api/v1/getrecord/*';
+			var url='http://76.247.180.62/api/v1/';
 			Http.open("GET", url);
 			Http.send();	
 			
