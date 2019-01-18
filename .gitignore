@@ -6,3 +6,4 @@ platforms
 plugins/**
 MeterApp.komodoproject
 *.swp
+node_modules/

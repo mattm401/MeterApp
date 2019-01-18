@@ -358,8 +358,24 @@ function connectionManager() {
             //If there is at least one error to upload
             // uploadErrorMessages();
         }
+		
+		//TODO: Integrate this if statement into the code rather than always being on
+		if (true){
+			//console.log("Sending polling request to get meter data...")
+			var Http = new XMLHttpRequest();
+			var url='http://76.247.180.62/api/v1/getrecord/*';
+			Http.open("GET", url);
+			Http.send();	
+			
+			Http.onreadystatechange=function(){
+				if(this.readyState==4 && this.status==200){
+					//console.log(Http.responseText)
+				}
+			}
+		}
     }
 }
+
 
 
 //Communication between iframe
