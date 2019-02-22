@@ -15,8 +15,11 @@ if (localStorage.getItem('language') == null) {
     }
 }
 var appVersion = "1.0.7";
-var meterURL = "http://www.energy-use.org/app/"
-var meterHost =  "http://www.energy-use.org"
+//var meterURL = "http://www.energy-use.org/app/"
+//var meterHost =  "http://www.energy-use.org"
+var meterURL = "http://localhost/app/"
+var meterHost =  "http://localhost/"
+
 
 var CURR_ACTIVITY = "current_activity";
 var CURR_ACTIVITY_ID = "0";  // the time use code AND category as csv
@@ -135,6 +138,7 @@ var app = {
     app.imgStatus            = $("#imgStatus");
     app.lblStatus            = $("#lblStatus");
     app.personaliseScreen    = $('#personalise_screen');
+	app.energyScreen		 = $('#energy_screen');
     app.appScreen            = $('#app_screen');
     app.btnSubmit            = $('#btn_submit');
     app.postcodeInput        = $('#postcode_input');
@@ -592,6 +596,15 @@ goBack: function() {
     }
     // XXX undo potential time offsets
   }
+},
+	
+showEnergyDashboard: function() {
+	console.log("pulling up energy iframe");
+	app.appScreen.hide();
+    app.addressList.hide();
+    app.contact_screen.hide();
+    app.personaliseScreen.hide();
+	app.energyScreen.show();
 },
 
 showProgressList: function() {
