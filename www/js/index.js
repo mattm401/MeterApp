@@ -453,6 +453,7 @@ navigateTo: function(screen_id, prev_activity) {
 app.activityAddPane.hide();
 app.activityListPane.hide();
 app.progressListPane.hide();
+app.energyScreen.hide();
 app.choicesPane.show();
 app.footerNav.show();
 app.helpCaption.hide(); // hide help text when moving on (default off);
