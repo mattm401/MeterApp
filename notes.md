@@ -1,7 +1,6 @@
 Upload to Google Play
 =====================
-App: 
-https://play.google.com/store/apps/details?id=uk.joymeter.Activities
+
 
 Build
 -----
@@ -30,13 +29,11 @@ Left: select "Release Management" > App releases
 
 iOS
 ===
-App:
-https://itunes.apple.com/us/app/joymeter/id1449269656?ls=1&mt=8
 
 cordova build ios
 
 open in xCode:
-/Users/phil/Sites/uk.joymeter.Activities/platforms/ios/JoyMeter.xcworkspace
+/Users/phil/Sites/uk.joymeter.Activities/platforms/ios/Activities.xcworkspace
 
 Update licence agreement:
 https://developer.apple.com/account

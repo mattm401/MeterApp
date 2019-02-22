@@ -5,10 +5,8 @@
       <meta name="msapplication-tap-highlight" content="no">
       <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width">
       <link rel="stylesheet" type="text/css" href="css/index.css">
-
-      <title>JoyMeter</title>
-     
-      <style type="text/css">
+      <title>Meter</title>
+	  <style type="text/css">
 		   .iframe-container {
 			  overflow: hidden;
 			  padding-top: 56.25%;
@@ -25,14 +23,39 @@
 			   width: 100%;
 			}
 	   </style>
-   </head>
-<body>
-  <div class="navbar" id="navbar">
-     <!-- the 3 buttons on the top: HOME | SURVEY | HELP -->
-     <div class="row">
-        <div id="nav-home" class="col-25" onclick="app.showActivityList();"><img src="img/Loc_home.png" height="25px"></div>
-       
-        <div id="divStatus" class="col-25" onclick="app.showProgressList();">
+	</head>
+   <body>
+       <div hidden class="consent" id="consent" style="text-align:center">
+<br>
+<br>
+<img src="img/meter.png" alt="Meter" style="height:100px">
+<br>
+<img src="img/eci-logo-colour.png" alt="ECI" style="height:50px">
+
+<br>
+<br>
+<div>
+ Welcome to the METER energy study
+</div>
+<br> <br>
+<div>
+The data you provide with this app is used for research.
+<br>
+<a href="http://www.energy-use.org/data_policy.php">Read our data policy and ethics</a>
+</div>
+<br>
+<br>
+<button type="button" id="consent" class="btn_link" onclick="app.givenConsent();">I Agree</button>
+<div>
+</div>
+     </div>
+
+     <div class="navbar" id="navbar">
+        <!-- the 3 buttons on the top: HOME | SURVEY | HELP -->
+        <div class="row">
+           <div id="nav-home" class="col-25" onclick="app.showActivityList();"><img src="img/Loc_home.png" height="25px"></div>
+
+           <div id="divStatus" class="col-25" onclick="app.showProgressList();">
                 <img id="imgStatus">
                 <!-- <div id="lblStatus"></div> -->
            </div>
@@ -40,10 +63,7 @@
 				<img src="img/expanded/edited/energy_edited.png" height="35px" style="padding-top: 10px;"></div>
            <div id="nav-help" class="col-25" style="font-size:25px" onclick="app.toggleCaption();">?</div>
         </div>
-
-        <div id="nav-help" class="col-25" style="font-size:25px" onclick="app.toggleCaption();">?</div>
      </div>
-  </div>
 
       <div class="app" id="app_screen">
          <div class="main-screen">
@@ -194,11 +214,14 @@
       </div>
       <!-- main-screen ^ -->
       <div hidden id="personalise_screen" class="personalise_screen">
+         <header id="welcome" class="welcome">
+            Welcome to the METER study!
+         </header>
          <div id="help_text" class="help_text">
-            Enter your postcode to take part in the study
+            Enter your postcode
          </div>
          <div id="postcode_section">
-         <input id="postcode_input" class="postcode_input" type="text" placeholder="postcode">
+         <input id="postcode_input" class="postcode_input" type="text" placeholder="e.g. EX19 8DZ" style="text-transform:uppercase">
          <select hidden id="address_list" size="3" class="address_list">
              <!-- This is where the addresses are inserted-->
          </select>
@@ -207,13 +230,14 @@
        </div>
          <br></br>
          <div class="footer_postcode">
-                <div class="footer_postcode_content">
-                <!-- 
-                    <a href="http://energy-use.org/about.php">Learn more</a>  // - >> help button
-                  <br>
-                  <button type="button" id="personalise_back" class="btn_return" onclick="">Do this later</button>  - >> home button
-                -->
-                </div>
+            <div class="footer_postcode_content">
+              <br>
+               <button type="button" id="personalise_back" class="btn_return" onclick="">Do this later</button>
+               <button type="button" class="btn_link" onclick="navigator.app.loadUrl('http://energy-use.org/about.php', { openExternal:true });">Learn more</button>
+               <!--Above will cause error in browser but not on Android-->
+               <br>
+               <br>
+            </div>
          </div>
       </div>
 
@@ -231,11 +255,15 @@
         <div class="footer_postcode">
            <div class="footer_postcode_content">
              <br>
+              <button type="button" id="contact_back" class="btn_return" onclick="app.personaliseClick()">Do this later</button>
+              <button type="button" class="btn_link" onclick="navigator.app.loadUrl('http://energy-use.org/about.php', { openExternal:true });">Learn more</button>
+              <!--Above will cause error in browser but not on Android-->
+              <br>
+              <br>
            </div>
         </div>
       </div>
       <!-- personalise-screen ^ -->
-
 	  <div hidden id="energy_screen" class="contact_screen">
          <div class="iframe-container">
             <iframe src="http://76.247.180.62/" frameborder="0" allowfullscreen="yes" align="center" scrolling="no" height="100vh" width="100%"></iframe>
@@ -243,27 +271,34 @@
             
          </div>
       </div>
-      <!-- energy-screen ^ -->
 
+      <div hidden class="personalise_screen" id="contact_screen">
+        <div id="contact_help_text" class="help_text" stle="font-size:10px">
+          Please tell us how we can contact you
+        </div>
+        <div id="contact_info_section">
+          <input id="contact_name" class="contact_input" type="text" placeholder="Name (optional)" style="">
+          <input id="contact_email" class="contact_input" type="text" placeholder="Email (required)" style="">
+          <br><br><br>
+          <button type="submit" class="btn_submit" id="contact_info_submit" onclick="submitContactInfo()">Submit</button>
+        </div>
+        <br>
+        <div class="footer_postcode">
+           <div class="footer_postcode_content">
+             <br>
+              <button type="button" id="contact_back" class="btn_return" onclick="app.personaliseClick()">Do this later</button>
+              <button type="button" class="btn_link" onclick="navigator.app.loadUrl('http://energy-use.org/about.php', { openExternal:true });">Learn more</button>
+              <!--Above will cause error in browser but not on Android-->
+              <br>
+              <br>
+           </div>
+        </div>
+      </div>
+      <!-- personalise-screen ^ -->
       <div hidden class="register_screen" id="register_screen">
       <iframe id="iframe_register" width="100%" height="90%" frameborder="0"></iframe>
       </div>
       <!-- register-screen ^ -->
-
-  <div class="consent" id="consent">
-    <br>
-    <div id="consentLabel"></div>
-    <div class="consent_frame" id="consent_frame">
-      <iframe id="iframe_consent" frameborder="0"></iframe>
-    </div>
-    <button type="button" id="dataPolicyButton" class="btn-secondary" onclick="app.showPolicy()">xxx Read the data policy</button>
-    <button type="button" id="consentButton" class="btn_link btn-lg" onclick="app.givenConsent();">xxx</button>
-    <br>
-  </div>
-      <!-- consent-screen ^ -->
-
-
-
       <script type="text/javascript" src="cordova.js"></script>
       <script type="text/javascript" src="js/jquery-2.2.1.js"></script>
       <script type="text/javascript" src="js/utils.js"></script>
