@@ -575,6 +575,12 @@ br {
   font-size: 20px;
 }
 
+.energy_screen {
+  height: 100%;
+  width: 100%;
+  font-size: 20px;
+}
+
 .address_list {
   padding: 10px 10px 10px 10px;
   max-width: 100%;
