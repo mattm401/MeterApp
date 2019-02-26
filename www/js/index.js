@@ -73,7 +73,21 @@ var app = {
 
   onDeviceReady: function() {
       app.initialSetup();
-      app.loadText()
+      app.loadText();
+	  
+	  /** Notification **/
+	  cordova.plugins.backgroundMode.enable(); // This caused an issue
+	  cordova.plugins.backgroundMode.on('activate', function() {
+		  	cordova.plugins.backgroundMode.disableWebViewOptimizations();
+ 	  });
+	  
+	  
+	  cordova.plugins.notification.local.on('yes', function(notification, eopts) { // 'yes' is the button ID 
+			//console.log(notification, eopts);
+			// Do some work:
+			app.returnToMainScreen();
+		   	cordova.plugins.backgroundMode.moveToForeground();
+	});
   },
 
   loadText: function() {
@@ -615,6 +629,42 @@ showEnergyDashboard: function() {
     app.contact_screen.hide();
     app.personaliseScreen.hide();
 	app.energyScreen.show();
+	
+	//----- Playing with notifications here -----
+	// In theory we would like the notifications to respond to energy data between 8am - 10pm when the phone is on the local WiFi.
+	// Prompts would initally be based on some kind of heurstic + timeout similar to the factory settings for the lights on Rainforest Automation's EMU-2 device.
+	// Ref: https://github.com/katzer/cordova-plugin-local-notifications
+	// Future Help: https://stackoverflow.com/questions/50436201/how-to-start-ionic-android-app-in-background-on-startup
+	// Run in Background (Attempted to add this above in the onDeviceReady function, but it caused the application to crash so it's commented out and
+	// I am not entirely sure it is problematics as the application appears to be running in the background just fine.)
+	// We may also need to look into how to get the application run all the time, which should be feasible with Android but not sure about iOS.
+	
+	
+	try {
+		
+        cordova.plugins.notification.local.schedule({
+            id: 1,
+			title: "Energy Update",
+			text: "Hmm, that's curious. Do you have a minute to complete a journal entry about your current energy-using activities?",
+			foreground: true,
+            at: new Date(new Date().getTime() + 10000),
+			actions: [
+				{ id: 'yes', title: 'Yes' },
+				{ id: 'no',  title: 'No' }
+			]
+        });
+		
+		setTimeout(function () { 
+			//This doesn't appear to work if the application is in the background
+			cordova.plugins.notification.local.clear(1, function() {
+				//alert("done");
+			}); 
+		}, 70000);
+    		
+    } catch (e) {
+        alert("Fail " + e);
+    }
+	
 },
 
 showProgressList: function() {
@@ -1109,6 +1159,7 @@ returnToMainScreen: function() {
   app.contact_screen.hide();
   app.personaliseScreen.hide();
   app.register_screen.hide();
+  app.energyScreen.hide();
   app.statusCheck();
 },
 
