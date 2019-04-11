@@ -12,9 +12,12 @@ if (localStorage.getItem('language') == null) {
         console.log("Language is " + localLanguage + " - will use English")
     }
 }
+
 var appVersion = "1.0.9";
-var meterURL = "http://www.energy-use.org/app/"
-var meterHost =  "http://www.energy-use.org"
+//var meterURL = "http://www.energy-use.org/app/"
+//var meterHost =  "http://www.energy-use.org"
+var meterURL = "http://76.247.180.62:8181/app/"
+var meterHost =  "http://76.247.180.62:8181/"
 
 var CURR_ACTIVITY = "current_activity";
 var CURR_ACTIVITY_ID = "0";  // the time use code AND category as csv
@@ -71,6 +74,21 @@ var app = {
   onDeviceReady: function() {
       app.initialSetup();
       app.loadText();
+
+	  
+	  /** Notification **/
+	  cordova.plugins.backgroundMode.enable(); // This caused an issue
+	  cordova.plugins.backgroundMode.on('activate', function() {
+		  	cordova.plugins.backgroundMode.disableWebViewOptimizations();
+ 	  });
+	  
+	  
+	  cordova.plugins.notification.local.on('yes', function(notification, eopts) { // 'yes' is the button ID 
+			//console.log(notification, eopts);
+			// Do some work:
+			app.returnToMainScreen();
+		   	cordova.plugins.backgroundMode.moveToForeground();
+	  });
   },
 
   loadText: function() {
@@ -143,6 +161,7 @@ var app = {
     app.imgStatus            = $("#imgStatus");
     app.lblStatus            = $("#lblStatus");
     app.personaliseScreen    = $('#personalise_screen');
+	app.energyScreen		 = $('#energy_screen');
     app.appScreen            = $('#app_screen');
     app.btnSubmit            = $('#btn_submit');
     app.postcodeInput        = $('#postcode_input');
@@ -229,8 +248,8 @@ statusCheck: function() {
     } else {
         // this is a master phone or has been authorised. Option to pick dates directly and modify HH survey
         $("#progress-row-authorise").hide();
-        $("#progress-row-date").show();
-        $("#progress-row-hhSurvey").show();
+        $("#progress-row-date").hide();
+        $("#progress-row-hhSurvey").hide();
         if (localStorage.getItem('continue_registration_link') != null && localStorage.getItem('householdSurvey') == null) {
             // complete registration
             app.title.html(app.label.titlePersonaliseFinish);
@@ -463,6 +482,7 @@ navigateTo: function(screen_id, prev_activity) {
 app.activityAddPane.hide();
 app.activityListPane.hide();
 app.progressListPane.hide();
+app.energyScreen.hide();
 app.choicesPane.show();
 app.footerNav.show();
 app.helpCaption.hide(); // hide help text when moving on (default off);
@@ -615,6 +635,15 @@ goBack: function() {
     }
     // XXX undo potential time offsets
   }
+},
+	
+showEnergyDashboard: function() {
+	console.log("pulling up energy iframe");
+	app.appScreen.hide();
+    app.addressList.hide();
+    app.contact_screen.hide();
+    app.personaliseScreen.hide();
+	app.energyScreen.show();	
 },
 
 showProgressList: function() {
@@ -1136,6 +1165,7 @@ returnToMainScreen: function() {
   app.contact_screen.hide();
   app.personaliseScreen.hide();
   app.register_screen.hide();
+  app.energyScreen.hide();
   app.statusCheck();
 },
 

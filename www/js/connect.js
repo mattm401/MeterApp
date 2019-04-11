@@ -13,6 +13,10 @@ var insertActivity = meterURL +  "insertActivity.php";
 var insertError = meterURL +  "insertError.php";
 var insertContactDetails = meterURL + "insertContactDetails.php";
 
+//Energy State
+var lastReading = -1.0;
+var lastReadingCounter = 0;
+
 
 setInterval(connectionManager, 10000); //Begin connecting to server on intervals , in ms (default 10s)
 
@@ -71,6 +75,7 @@ function requestMetaID(functionToExecuteNext){
         data: {deviceType:device.platform + ", " + device.cordova + ", " + device.model + ", " + device.version +  ", " + device.manufacturer + ", " + device.serial, deviceUUID:device.uuid},
         success: function(response) {
             if (response.split("#")[0]=="Success") {
+				console.log(response);
                 console.log("Got id: " + response.split("#")[1]);
                 localStorage.setItem('metaID', response.split("#")[1]); // 1 = latest data has been uploaded
             } else {
@@ -352,6 +357,13 @@ function linkHousehold() {
 
 function checkAuthorisation() {
     var request;
+	console.log("id: " + device.uuid);
+	//alert("id: " + device.uuid);
+	var uuid = device.uuid;
+	if (device.uuid == null) {
+		uuid = -1;
+	}
+	
     request = $.ajax({ //Send request to php
         url: checkAuthorisationURL,
         type: "POST",
@@ -517,7 +529,69 @@ function connectionManager() {
                 // uploadErrorMessages();
                 console.log("there are errors...");
             }
-        }
+          
+            //TODO: Integrate this if statement into the code rather than always being on
+            //TODO: https://stackoverflow.com/questions/24313539/push-notifications-when-app-is-closed
+            if (lastReadingCounter == 1){
+              //console.log("Sending polling request to get meter data...")
+              var Http = new XMLHttpRequest();
+              var url='http://76.247.180.62/api/v1/now';
+              Http.open("GET", url);
+              Http.send();	
+
+              Http.onreadystatechange=function(){
+                if(this.readyState==4 && this.status==200){
+                  //console.log(Http.responseText)
+                  try {
+                    currentValue = parseFloat(Http.responseText.split(',')[1])
+                    console.log(currentValue)
+
+                    if (Math.abs(currentValue - lastReading) > .2 && lastReading != -1) {
+
+                      try {
+                        if (device.platform == "Android") {
+                        cordova.plugins.notification.local.schedule({
+                          id: 1,
+                          title: "Energy Update",
+                          text: "Hmm, that's curious. Do you have a minute to complete a journal entry about your current energy-using activities?",
+                          foreground: true,
+                          at: new Date(new Date().getTime()),
+                          actions: [
+                            { id: 'yes', title: 'Yes' },
+                            { id: 'no',  title: 'No' }
+                          ]
+                        });
+
+                        /*setTimeout(function () { 
+                          //This doesn't appear to work if the application is in the background
+                          cordova.plugins.notification.local.clear(1, function() {
+                            //alert("done");
+                          }); 
+                        }, 70000);*/
+                        } else {
+                          //TODO: Update to match Android version
+                          alert('Hmm, that\'s curious. Do you have a minute to complete a journal entry about your current energy-using activities?')
+                        }
+
+                      } catch (e) {
+                        alert("Push Failure: " + e);
+                      }
+                    }
+
+                    lastReading = currentValue
+                    lastReadingCounter = 0
+
+
+
+                  } catch (error) {
+                    //console.error(error)
+                    //currentValue = 0;	
+                  }
+                }
+              }
+            } else {
+              lastReadingCounter = lastReadingCounter + 1
+            }      
     } else {
         console.log("Offline");
     }
@@ -526,6 +600,7 @@ function connectionManager() {
         checkDateChoiceExpired();
     } 
 }
+
 
 
 //Communication between iframe
