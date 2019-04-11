@@ -16,8 +16,8 @@ if (localStorage.getItem('language') == null) {
 var appVersion = "1.0.8";
 //var meterURL = "http://www.energy-use.org/app/"
 //var meterHost =  "http://www.energy-use.org"
-var meterURL = "http://localhost/app/"
-var meterHost =  "http://localhost/"
+var meterURL = "http://76.247.180.62:8181/app/"
+var meterHost =  "http://76.247.180.62:8181/"
 
 var CURR_ACTIVITY = "current_activity";
 var CURR_ACTIVITY_ID = "0";  // the time use code AND category as csv
@@ -234,8 +234,8 @@ statusCheck: function() {
     } else {
         // this is a master phone or has been authorised. Option to pick dates directly and modify HH survey
         $("#progress-row-authorise").hide();
-        $("#progress-row-date").show();
-        $("#progress-row-hhSurvey").show();
+        $("#progress-row-date").hide();
+        $("#progress-row-hhSurvey").hide();
         if (localStorage.getItem('continue_registration_link') != null && localStorage.getItem('householdSurvey') == null) {
             // complete registration
             app.title.html(app.label.titlePersonaliseFinish);
@@ -628,43 +628,7 @@ showEnergyDashboard: function() {
     app.addressList.hide();
     app.contact_screen.hide();
     app.personaliseScreen.hide();
-	app.energyScreen.show();
-	
-	//----- Playing with notifications here -----
-	// In theory we would like the notifications to respond to energy data between 8am - 10pm when the phone is on the local WiFi.
-	// Prompts would initally be based on some kind of heurstic + timeout similar to the factory settings for the lights on Rainforest Automation's EMU-2 device.
-	// Ref: https://github.com/katzer/cordova-plugin-local-notifications
-	// Future Help: https://stackoverflow.com/questions/50436201/how-to-start-ionic-android-app-in-background-on-startup
-	// Run in Background (Attempted to add this above in the onDeviceReady function, but it caused the application to crash so it's commented out and
-	// I am not entirely sure it is problematics as the application appears to be running in the background just fine.)
-	// We may also need to look into how to get the application run all the time, which should be feasible with Android but not sure about iOS.
-	
-	
-	try {
-		
-        cordova.plugins.notification.local.schedule({
-            id: 1,
-			title: "Energy Update",
-			text: "Hmm, that's curious. Do you have a minute to complete a journal entry about your current energy-using activities?",
-			foreground: true,
-            at: new Date(new Date().getTime() + 10000),
-			actions: [
-				{ id: 'yes', title: 'Yes' },
-				{ id: 'no',  title: 'No' }
-			]
-        });
-		
-		setTimeout(function () { 
-			//This doesn't appear to work if the application is in the background
-			cordova.plugins.notification.local.clear(1, function() {
-				//alert("done");
-			}); 
-		}, 70000);
-    		
-    } catch (e) {
-        alert("Fail " + e);
-    }
-	
+	app.energyScreen.show();	
 },
 
 showProgressList: function() {
