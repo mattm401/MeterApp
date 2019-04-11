@@ -1,8 +1,10 @@
+var checkServerURL = meterURL + "checkServer.php";
 var getMetaID = meterURL +  "getMetaID.php";
 var getAddresses =  meterURL +  "getAddresses.php";
 var checkForHouseID = meterURL +  "checkAddress.php";
 var linkHouseholdURL = meterURL +  "linkHousehold.php";
 var getDateChoice = meterURL +  "getDateChoice.php";
+var getIntervention = meterURL +  "getIntervention.php";
 var requestAutorisationURL = meterURL +  "requestAutorisation.php";
 var checkAuthorisationURL = meterURL +  "checkAuthorisation.php";
 
@@ -50,6 +52,7 @@ function uploadActivities() {
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
+            localStorage.setItem('Online', false);
             //alert("Check internet connectivity");
         }
     });
@@ -81,6 +84,7 @@ function requestMetaID(functionToExecuteNext){
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
+            localStorage.setItem('Online', false);
             if (localStorage.getItem("consent")==null) {
             }/* else { //Dont want to alert if they are still on consent screen
                 alert("Please check your internet connection");
@@ -133,6 +137,7 @@ function requestAddresses(postcode){ //Requesting from API (or really our PHP wh
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             app.personaliseClick();
             console.log("Check server connection (to php): " + textStatus);
+            localStorage.setItem('Online', false);
             alert("Please check your internet connection");
         }
     });
@@ -171,10 +176,97 @@ function checkForAddress(address) { //Checks whether address is in our database
             console.log(errorThrown);
             console.log(textStatus);
 
+            localStorage.setItem('Online', false);
             alert("Please check your internet connection");
         }
     });
 }
+
+
+function checkHHIntervention() {
+    var request;
+    var date = localStorage.getItem('dateChoice');
+    var sc   = localStorage.getItem('sc');
+    var hhID = localStorage.getItem('household_id');
+    request = $.ajax({ //Send request to php
+        url: getIntervention,
+        type: "POST",
+        data: {hhID:hhID,date:date,sc:sc},
+        success: function(response) {
+            if (response.split("#")[0]=="Got intervention") {
+                var intervention = response.split("#")[1];
+                if (intervention > 0) { 
+                    var d = new Date(date + 'T17:00:00'); // at 5pm
+                    d.setDate(d.getDate() + 1);      // intervention on Day 2
+                    d.setTime( d.getTime() + d.getTimezoneOffset()*60*1000 );
+                    var itvID = utils.actID(d).substring(0,19);
+
+                    localStorage.setItem('intervention',itvID);
+                    var activityList = utils.getList(ACTIVITY_LIST);
+                    var actIntStart = {'Meta_idMeta': "0", 
+                                  //'activity': "2h demand reduction from ",
+                                  //'category': 'intervention',
+                                  // 'dt_recorded': d,
+                                  'dt_activity': d, 
+                                  'key': 'intervention',
+                                  // "location"  : '0',
+                                  // "people"    : '0',
+                                  // "enjoyment" : '0',
+                                  // "tuc"       : '12000',
+                                  // "path"      : ''
+                                 };
+                    activityList[itvID] = actIntStart;
+                    utils.saveList(ACTIVITY_LIST, activityList);
+
+                    console.log("Intervention is set!");
+                    app.statusCheck();
+                } else {
+                    console.log("No intervention");
+                    itvID = localStorage.getItem('intervention');
+                    app.deleteAct(itvID);
+                    localStorage.removeItem('intervention');
+                }
+            }
+        },
+        error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
+            console.log("Check server connection (to php): " + textStatus);
+            localStorage.setItem('Online', false);
+        }
+    });
+}
+
+
+function checkDateChoiceExpired() {
+    var dateChoice = localStorage.getItem('dateChoice');
+    var d = new Date(dateChoice + 'T21:00:00'); // at 9pm
+    d.setTime( d.getTime() + d.getTimezoneOffset()*60*1000 );
+    d.setDate(d.getDate() + 1);      // end on Day 2 at 9pm
+    var today = new Date();
+
+    if (today > d) {
+        localStorage.removeItem('dateChoice');
+
+        var studyEndID = utils.actID(d).substring(0,19);
+        var activityList = utils.getList(ACTIVITY_LIST);
+        var actStudyEnd = {'Meta_idMeta': "0", 
+                      //'activity': "Study completed ",
+        //               'category': 'study',
+                      'dt_recorded': d,
+                      'dt_activity': d, 
+                      'key': 'study end',
+        //                           "location"  : '0',
+        //                           "people"    : '0',
+        //                           "enjoyment" : '0',
+        //                           "tuc"       : '12000',
+        //                           "path"      : ''
+                     };
+        activityList[studyEndID] = actStudyEnd;
+        utils.saveList(ACTIVITY_LIST, activityList);
+        console.log("Study completed");
+        app.statusCheck();
+    }
+}
+
 
 function getHHDateChoice() {
     var request;
@@ -186,16 +278,49 @@ function getHHDateChoice() {
             if (response.split("#")[0]=="Got date") { //to confirm whether data has been inserted
                 var dateChoice = response.split("#")[1];
                 if (dateChoice != '2000-01-01') {         // default, i.e. no date chosen
-                    localStorage.setItem('dateChoice',dateChoice);
-                    console.log("Date set to this household " + dateChoice);
-                    app.statusCheck();
+                    var d = new Date(dateChoice); 
+                    var today = new Date();
+                    if (d < today) {
+                        localStorage.setItem('dateChoice',dateChoice);
+                        var d = new Date(dateChoice + 'T17:00:00'); // at 5pm
+                        d.setTime( d.getTime() + d.getTimezoneOffset()*60*1000 );
+                        var studyID = utils.actID(d).substring(0,19);
+
+                        if (studyID != localStorage.setItem('studyID',studyID)) {
+                                // study date changed / is new
+                                localStorage.setItem('studyID',studyID);
+                                var activityList = utils.getList(ACTIVITY_LIST);
+                                var actStudyStart = {'Meta_idMeta': "0", 
+                                              // 'activity': "Study begins at ",
+                                              // 'dt_recorded': d,
+                                              'dt_activity': d, 
+                                              'key': 'study'
+                                              // 'category': 'study',
+                                              // "location"  : '0',
+                                              // "people"    : '0',
+                                              // "enjoyment" : '0',
+                                              // "tuc"       : '12000',
+                                              // "path"      : ''
+                                             };
+                                activityList[studyID] = actStudyStart;
+                                utils.saveList(ACTIVITY_LIST, activityList);
+
+                                console.log("Study date is set!");
+                                app.statusCheck();
+                        }
+                    } else {
+                        // date is past
+                        console.log("Study date is outdated");
+                    }
                 } else {
+                    // no date was chosen
                     localStorage.removeItem('dateChoice'); // will keep checking
                 }
             }
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
+            localStorage.setItem('Online', false);
         }
     });
 }
@@ -223,6 +348,7 @@ function linkHousehold() {
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
             localStorage.removeItem('householdStatus'); // tells connection manager that linking needs to be done
+            localStorage.setItem('Online', false);
             // localStorage.setItem('householdStatus', "NOTLINKED"); //so we can determine that it has successfully linked
             //alert("Check internet connectivity");
         }
@@ -241,7 +367,7 @@ function checkAuthorisation() {
     request = $.ajax({ //Send request to php
         url: checkAuthorisationURL,
         type: "POST",
-        data: {mID:localStorage.getItem('metaID'), serialNumber:uuid},
+        data: {mID:localStorage.getItem('metaID'), serialNumber:device.uuid,pass:localStorage.getItem('pass')},
         success: function(response) {
             if (response.split("#")[0]=="Success") {
                 console.log("This meta ID is authorised");
@@ -253,7 +379,8 @@ function checkAuthorisation() {
             }
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
-                console.log("error in checkAuthorisation");
+            console.log("error in checkAuthorisation");
+            localStorage.setItem('Online', false);
         }
     });
 }
@@ -278,6 +405,7 @@ function requestAutorisation() {
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
+            localStorage.setItem('Online', false);
         }
     });
 }
@@ -299,6 +427,7 @@ function surveyUpload() {
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
+            localStorage.setItem('Online', false);
             //alert("Check internet connectivity");
         }
     });
@@ -328,11 +457,33 @@ function submitContactInfo() {
                 //window.location.href = meterURL + response.split('#')[0];
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
-                console.log("Check server connection (to php): " + textStatus);
-                alert("Please check your internet connection and try again later");
-                console.log(XMLHttpRequest);
-                console.log(textStatus);
-                console.log(errorThrown);
+            console.log("Check server connection (to php): " + textStatus);
+            alert("Please check your internet connection and try again later");
+            console.log(XMLHttpRequest);
+            console.log(textStatus);
+            console.log(errorThrown);
+            localStorage.setItem('Online', false);
+        }
+    });
+}
+
+function checkServer() {
+    // assume the worst - no internet
+    var request;
+    request = $.ajax({ //Send request to php
+        url: checkServerURL,
+        type: "POST",
+        data: {}, //send survey array
+        success: function(response) {
+            if (response == "Success") {
+                localStorage.setItem('Online', true);
+            }
+        },
+        error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
+            console.log(XMLHttpRequest);
+            console.log(textStatus);
+            console.log(errorThrown);
+            localStorage.setItem('Online', false);
         }
     });
 }
@@ -342,98 +493,112 @@ function connectionManager() {
     // called from timer
     // gets Meta_ID, uploads activities, uploads survey
     //
-    if (localStorage.getItem('metaID') == null){
-        console.log("no meta");
-        requestMetaID();
+    checkServer();
+   
+    if (localStorage.getItem('Online') == "true"){
+        if (localStorage.getItem('metaID') == null){
+            requestMetaID();
+        } else {
+            if (localStorage.getItem('activitiesToUpload') != "" && localStorage.getItem('activitiesToUpload') != null) {
+                console.log("Uploading Activities");
+                uploadActivities(); //Called if there are items to upload
+            }
+            if (localStorage.getItem('surveyUploaded') != 1 && localStorage.getItem('survey root') == 'survey complete') {
+                console.log("Uploading Survey");
+                surveyUpload(); //called if survey is complete but has not been uploaded up and we already have an ID
+            }
+
+            if(localStorage.getItem('household_id') != null && localStorage.getItem('householdStatus') == null) {
+                // This means we have got a hhid but havent linked to it yet
+                linkHousehold();
+                console.log("Linking household");
+            } 
+            
+            // Has a participation date been set?
+            if (localStorage.getItem('household_id') != null && localStorage.getItem('dateChoice') == null) {
+                getHHDateChoice();
+            } 
+
+            // Does this date come with an intervention?
+            if (localStorage.getItem('dateChoice') != null && localStorage.getItem('intervention') == null) {
+                checkHHIntervention();
+            } 
+
+            if (localStorage.getItem("errorsToUpload")!=null && localStorage.getItem("errorsToUpload")!="") {
+                //If there is at least one error to upload
+                // uploadErrorMessages();
+                console.log("there are errors...");
+            }
+          
+            //TODO: Integrate this if statement into the code rather than always being on
+            //TODO: https://stackoverflow.com/questions/24313539/push-notifications-when-app-is-closed
+            if (lastReadingCounter == 1){
+              //console.log("Sending polling request to get meter data...")
+              var Http = new XMLHttpRequest();
+              var url='http://76.247.180.62/api/v1/now';
+              Http.open("GET", url);
+              Http.send();	
+
+              Http.onreadystatechange=function(){
+                if(this.readyState==4 && this.status==200){
+                  //console.log(Http.responseText)
+                  try {
+                    currentValue = parseFloat(Http.responseText.split(',')[1])
+                    console.log(currentValue)
+
+                    if (Math.abs(currentValue - lastReading) > .2 && lastReading != -1) {
+
+                      try {
+                        if (device.platform == "Android") {
+                        cordova.plugins.notification.local.schedule({
+                          id: 1,
+                          title: "Energy Update",
+                          text: "Hmm, that's curious. Do you have a minute to complete a journal entry about your current energy-using activities?",
+                          foreground: true,
+                          at: new Date(new Date().getTime()),
+                          actions: [
+                            { id: 'yes', title: 'Yes' },
+                            { id: 'no',  title: 'No' }
+                          ]
+                        });
+
+                        /*setTimeout(function () { 
+                          //This doesn't appear to work if the application is in the background
+                          cordova.plugins.notification.local.clear(1, function() {
+                            //alert("done");
+                          }); 
+                        }, 70000);*/
+                        } else {
+                          //TODO: Update to match Android version
+                          alert('Hmm, that\'s curious. Do you have a minute to complete a journal entry about your current energy-using activities?')
+                        }
+
+                      } catch (e) {
+                        alert("Push Failure: " + e);
+                      }
+                    }
+
+                    lastReading = currentValue
+                    lastReadingCounter = 0
+
+
+
+                  } catch (error) {
+                    //console.error(error)
+                    //currentValue = 0;	
+                  }
+                }
+              }
+            } else {
+              lastReadingCounter = lastReadingCounter + 1
+            }      
     } else {
-        if (localStorage.getItem('activitiesToUpload') != "" && localStorage.getItem('activitiesToUpload') != null) {
-            console.log("Uploading Activities");
-            uploadActivities(); //Called if there are items to upload
-        }
-        if (localStorage.getItem('surveyUploaded') != 1 && localStorage.getItem('survey root') == 'survey complete') {
-            console.log("Uploading Survey");
-            surveyUpload(); //called if survey is complete but has not been uploaded up and we already have an ID
-        }
-
-        if(localStorage.getItem('household_id') != null && localStorage.getItem('householdStatus') == null) {
-            // This means we have got a hhid but havent linked to it yet
-            linkHousehold();
-            console.log("Linking household");
-        } 
-        
-        if (localStorage.getItem('household_id') != null && localStorage.getItem('dateChoice') == null ) {
-            //Request date from Household table
-            getHHDateChoice();
-        } 
-
-        if (localStorage.getItem("errorsToUpload")!=null && localStorage.getItem("errorsToUpload")!="") {
-            //If there is at least one error to upload
-            // uploadErrorMessages();
-        }
-		
-		//TODO: Integrate this if statement into the code rather than always being on
-		//TODO: https://stackoverflow.com/questions/24313539/push-notifications-when-app-is-closed
-		if (lastReadingCounter == 1){
-			//console.log("Sending polling request to get meter data...")
-			var Http = new XMLHttpRequest();
-			var url='http://76.247.180.62/api/v1/now';
-			Http.open("GET", url);
-			Http.send();	
-			
-			Http.onreadystatechange=function(){
-				if(this.readyState==4 && this.status==200){
-					//console.log(Http.responseText)
-					try {
-						currentValue = parseFloat(Http.responseText.split(',')[1])
-						console.log(currentValue)
-						
-						if (Math.abs(currentValue - lastReading) > .2 && lastReading != -1) {
-						
-							try {
-								if (device.platform == "Android") {
-								cordova.plugins.notification.local.schedule({
-									id: 1,
-									title: "Energy Update",
-									text: "Hmm, that's curious. Do you have a minute to complete a journal entry about your current energy-using activities?",
-									foreground: true,
-									at: new Date(new Date().getTime()),
-									actions: [
-										{ id: 'yes', title: 'Yes' },
-										{ id: 'no',  title: 'No' }
-									]
-								});
-
-								/*setTimeout(function () { 
-									//This doesn't appear to work if the application is in the background
-									cordova.plugins.notification.local.clear(1, function() {
-										//alert("done");
-									}); 
-								}, 70000);*/
-								} else {
-									//TODO: Update to match Android version
-									alert('Hmm, that\'s curious. Do you have a minute to complete a journal entry about your current energy-using activities?')
-								}
-
-							} catch (e) {
-								alert("Push Failure: " + e);
-							}
-						}
-						
-						lastReading = currentValue
-						lastReadingCounter = 0
-						
-						
-						
-					} catch (error) {
-						//console.error(error)
-						//currentValue = 0;	
-					}
-				}
-			}
-		} else {
-			lastReadingCounter = lastReadingCounter + 1
-		}
+        console.log("Offline");
     }
+    // date check can be done offline as well
+    if (localStorage.getItem('dateChoice') != null) {
+        checkDateChoiceExpired();
+    } 
 }
 
 
@@ -536,6 +701,7 @@ function uploadErrorMessages(){ //This sends errors to the SQL database
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
+            localStorage.setItem('Online', false);
         }
     });
 }

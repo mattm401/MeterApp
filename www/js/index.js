@@ -13,7 +13,7 @@ if (localStorage.getItem('language') == null) {
     }
 }
 
-var appVersion = "1.0.8";
+var appVersion = "1.0.9";
 //var meterURL = "http://www.energy-use.org/app/"
 //var meterHost =  "http://www.energy-use.org"
 var meterURL = "http://76.247.180.62:8181/app/"
@@ -74,6 +74,7 @@ var app = {
   onDeviceReady: function() {
       app.initialSetup();
       app.loadText();
+
 	  
 	  /** Notification **/
 	  cordova.plugins.backgroundMode.enable(); // This caused an issue
@@ -87,7 +88,7 @@ var app = {
 			// Do some work:
 			app.returnToMainScreen();
 		   	cordova.plugins.backgroundMode.moveToForeground();
-	});
+	  });
   },
 
   loadText: function() {
@@ -113,11 +114,17 @@ var app = {
     $('#progress3').html(app.label.progress3);
     $('#progress4').html(app.label.progress4);
     $('#progress5').html(app.label.progress5);
+
+    $('#help-btn-now').html(app.label.help.btnNow);
+    $('#help-btn-recent').html(app.label.help.btnRecent);
+    $('#help-act-list').html(app.label.help.actList);
+    $('#help-post-code').html(app.label.help.postcode);
+    $('#help-contact-details').html(app.label.help.contactDetails);
+
     app.updateNowTime();
     setInterval(function(){ app.updateNowTime(); }, 10000);
         // 10 second clock update
 
-    app.statusCheck();
     setInterval(function(){ app.statusCheck(); }, 3*60*60*1000);
         // 3 hour update (needed for real idlers ?)
     }),
@@ -125,6 +132,7 @@ var app = {
     $.getJSON('text/activities-' + localStorage.getItem('language') + '.json', function(data) {
       console.log('loading activities-' + localStorage.getItem('language') + '.json');
       app.activities = data.activities;
+      app.showActivityList();   // to show already reported activities at startup
       });
     $.getJSON('text/screens-' + localStorage.getItem('language') + '.json', function(screen_data) {
       console.log('loading screens-' + localStorage.getItem('language') + '.json');
@@ -165,7 +173,8 @@ var app = {
     app.contact_screen       = $('#contact_screen');
     app.disabled_list_option = $('#disabled_list_option');
     app.iframe_register      = $('#iframe_register');
-    app.iframe_consent      = $('#iframe_consent');
+    app.iframe_consent       = $('#iframe_consent');
+    app.iframe_enjoyment     = $('#iframe_enjoyment');
     app.consent              = $('#consent');
     app.navbar               = $('#navbar');
 
@@ -231,6 +240,11 @@ statusCheck: function() {
         $("#progress-row-date").hide();
         $("#progress-row-hhSurvey").hide();
         checkAuthorisation();
+        if (localStorage.getItem('Online') == "true") {
+            $("#progress-row-authorise").show();
+        } else {
+            $("#progress-row-authorise").hide();
+        }
     } else {
         // this is a master phone or has been authorised. Option to pick dates directly and modify HH survey
         $("#progress-row-authorise").hide();
@@ -250,6 +264,7 @@ statusCheck: function() {
             app.imgStatus.attr("src","img/time_forward.png");
         } else {
             // got a date - show stars for further options
+            // XXX check dateChoice is in the future - else NULL
             app.lblStatus.html("");
             app.updateStars();
             app.divStatus.attr("onclick","app.showProgressList()");
@@ -661,8 +676,17 @@ showProgressList: function() {
         $('#progress-img-indivSurvey').attr("src","img/stars_on.png");
     }
 
-  if (actCount > 4) {
+  if (actCount > 4 && localStorage.getItem('Online')) {
     $("img#stars2").attr("src","img/stars_on.png");
+    var idMeta = localStorage.getItem('metaID');
+    var enjoymentURL = app.label.enjoymentURL + idMeta;
+    app.iframe_enjoyment.show(); 
+    app.iframe_enjoyment.attr('src', enjoymentURL);
+    app.iframe_enjoyment.load(function(){
+        sendMessageIframe("App requested enjoyment");
+    });
+  } else {
+    app.iframe_enjoyment.hide(); 
   }
   if (actCount > 9) {
     $("img#stars3").attr("src","img/stars_on.png");
@@ -713,7 +737,8 @@ showActivityList: function() {
     var item = activityList[key];
       var dt  = new Date(item.dt_activity.replace(" ","T"))
       // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toLocaleDateString
-      var options = { hour: 'numeric', minute: '2-digit', timeZone: 'UTC'};
+      // var options = { hour: 'numeric', minute: '2-digit', timeZone: 'UTC'};
+      var options = { hour: 'numeric', minute: '2-digit' };
       var hhmm = dt.toLocaleString(app.label.locale, options);
       var options = { weekday: 'long', day: 'numeric', month: 'short'};
       thisWeekday = dt.toLocaleString(app.label.locale, options);
@@ -731,14 +756,23 @@ showActivityList: function() {
       var icon = "Other_type"
     }
 
+    if (activity.category == 'study' || activity.category == 'intervention') {
+    actsHTML +=
+    '<div class="activity-row ' + activity.category + '">' +
+    '<div class="study-item">' + activity.title + hhmm + '</div> ' +
+    '</div>';
+
+      }
+      else {
     actsHTML +=
     '<div class="activity-row ' + item.category + '" onClick="app.editActivityScreen(\'' + key + '\')">' +
     '<div class="activity-time activity-item">' + hhmm + '</div>' +
-    '<div class="activity-cell activity-item">' + item.activity  + '</div> ' +
+    '<div class="activity-item">' + item.activity  + '</div> ' +
     '<div class="activity-icon activity-item"><img class="activity-icon" src="img/'+icon+'.png"></div>'+
     '<div class="activity-icon activity-item"><img class="activity-icon" src="img/loc_'+item.location+'.png"></div>'+
     '<div class="activity-icon activity-item"><img class="activity-icon" src="img/enjoy_'+item.enjoyment+'.png"></div>'+
     '</div>';
+      }
   }
   app.act_count.show();
   app.activity_list_div.html(actsHTML);
@@ -835,10 +869,12 @@ addActivityToList: function() {
   app.updateStars();
 },
 
+
 removeActivity: function (uuid) {
   app.deleteAct(uuid);
   app.showActivityList();
 },
+
 
 deleteAct: function (actKey) {
   if (actKey) {
@@ -852,6 +888,7 @@ deleteAct: function (actKey) {
     }
   }
 },
+
 
 editActivityScreen: function (actKey) {
   // this is a special case of "navigateTo":
@@ -1080,8 +1117,14 @@ submitOther: function() {
         // h was followed by nothing but a number
         localStorage.removeItem('metaID');          // get new metaID
         localStorage.removeItem('householdStatus'); // for connection manager "not linked yet"
+        localStorage.removeItem('intervention'); // to be rechecked 
+        localStorage.removeItem('sc'); // to be rechecked 
+        utils.saveList(ACTIVITY_LIST, {});          // DELETE all activities from device
         localStorage.setItem('household_id', hhID);
         localStorage.setItem('householdSurvey', 'COMPLETE');
+        localStorage.setItem('pass', 'AuthorisedByVitueOfBeingOneOfOurDevices');
+        utils.save(SURVEY_STATUS, "survey root");   // reset individual survey
+        app.imgStatus.attr("src","img/AR_4.png");
         app.navigateTo("home", "ignore"); // ignore stops creation of new entry
         app.title.html("HH ID set to " + hhID);
     } else if (prev_activity == "*en"){
@@ -1113,7 +1156,6 @@ personaliseClick: function() { //Goes to the screen with the postcode input
     // document.getElementById('personalise_back').innerHTML = 'Do this later'; > Use Home
     // app.back_btn_pers.attr("onclick","app.returnToMainScreen()");
     app.btnSubmit.html("Submit");
-    // app.helpText.html("Enter your postcode");
     }
 },
 
