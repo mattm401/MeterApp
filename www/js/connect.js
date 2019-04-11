@@ -284,7 +284,10 @@ function getHHDateChoice() {
                         localStorage.setItem('dateChoice',dateChoice);
                         var d = new Date(dateChoice + 'T17:00:00'); // at 5pm
                         d.setTime( d.getTime() + d.getTimezoneOffset()*60*1000 );
-                        var studyID = utils.actID(d).substring(0,19);
+						//TODO: More intervention code changes
+						console.log("Study date is set!");
+                        app.statusCheck();
+                        /*var studyID = utils.actID(d).substring(0,19);
 
                         if (studyID != localStorage.setItem('studyID',studyID)) {
                                 // study date changed / is new
@@ -307,7 +310,7 @@ function getHHDateChoice() {
 
                                 console.log("Study date is set!");
                                 app.statusCheck();
-                        }
+                        }*/
                     } else {
                         // date is past
                         console.log("Study date is outdated");
@@ -466,10 +469,10 @@ function submitContactInfo() {
         }
     });
 }
-
+//TODO: This function is new and does not work with the current version of the backend
 function checkServer() {
     // assume the worst - no internet
-    var request;
+    /*var request;
     request = $.ajax({ //Send request to php
         url: checkServerURL,
         type: "POST",
@@ -485,7 +488,8 @@ function checkServer() {
             console.log(errorThrown);
             localStorage.setItem('Online', false);
         }
-    });
+    });*/
+	localStorage.setItem('Online', true);
 }
 
 function connectionManager() {
@@ -520,17 +524,19 @@ function connectionManager() {
             } 
 
             // Does this date come with an intervention?
-            if (localStorage.getItem('dateChoice') != null && localStorage.getItem('intervention') == null) {
+			//TODO: Also part of recent intervention ad; removed for now.
+            /*if (localStorage.getItem('dateChoice') != null && localStorage.getItem('intervention') == null) {
                 checkHHIntervention();
-            } 
+            } */
 
             if (localStorage.getItem("errorsToUpload")!=null && localStorage.getItem("errorsToUpload")!="") {
                 //If there is at least one error to upload
                 // uploadErrorMessages();
                 console.log("there are errors...");
-            }
-          
-            //TODO: Integrate this if statement into the code rather than always being on
+            } 
+			
+			/* Realtime code */
+			//TODO: Integrate this if statement into the code rather than always being on
             //TODO: https://stackoverflow.com/questions/24313539/push-notifications-when-app-is-closed
             if (lastReadingCounter == 1){
               //console.log("Sending polling request to get meter data...")
@@ -590,11 +596,15 @@ function connectionManager() {
                 }
               }
             } else {
-              lastReadingCounter = lastReadingCounter + 1
-            }      
+              lastReadingCounter = lastReadingCounter + 1;
+            }  
+			/* End of Realtime code */
+			
+		}
     } else {
         console.log("Offline");
     }
+	
     // date check can be done offline as well
     if (localStorage.getItem('dateChoice') != null) {
         checkDateChoiceExpired();
