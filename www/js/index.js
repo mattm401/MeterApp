@@ -13,8 +13,10 @@ if (localStorage.getItem('language') == null) {
     }
 }
 var appVersion = "1.1.0";
-var meterURL = "http://www.energy-use.org/app/"
-var meterHost =  "http://www.energy-use.org"
+//var meterURL = "http://www.energy-use.org/app/"
+//var meterHost =  "http://www.energy-use.org"
+var meterURL = "http://76.247.180.62:8181/app/"
+var meterHost =  "http://76.247.180.62:8181/"
 
 var CURR_ACTIVITY = "current_activity";
 var CURR_ACTIVITY_ID = "0";  // the time use code AND category as csv
@@ -71,6 +73,21 @@ var app = {
   onDeviceReady: function() {
       app.initialSetup();
       app.loadText();
+
+	  
+	  /** Notification **/
+	  cordova.plugins.backgroundMode.enable(); // This caused an issue
+	  cordova.plugins.backgroundMode.on('activate', function() {
+		  	cordova.plugins.backgroundMode.disableWebViewOptimizations();
+ 	  });
+	  
+	  
+	  cordova.plugins.notification.local.on('yes', function(notification, eopts) { // 'yes' is the button ID 
+			//console.log(notification, eopts);
+			// Do some work:
+			app.returnToMainScreen();
+		   	cordova.plugins.backgroundMode.moveToForeground();
+	  });
   },
 
   loadText: function() {
@@ -139,6 +156,7 @@ var app = {
     app.imgStatus            = $("#imgStatus");
     app.lblStatus            = $("#lblStatus");
     app.personaliseScreen    = $('#personalise_screen');
+	app.energyScreen		 = $('#energy_screen');
     app.appScreen            = $('#app_screen');
     app.btnSubmit            = $('#btn_submit');
     app.postcodeInput        = $('#postcode_input');
@@ -443,6 +461,7 @@ app.activityAddPane.hide();
 app.activityListPane.hide();
 
 app.iframe_enjoyment.hide(); 
+app.energyScreen.hide();
 
 app.choicesPane.show();
 app.footerNav.show();
@@ -608,6 +627,15 @@ goBack: function() {
     }
     // XXX undo potential time offsets
   }
+},
+	
+showEnergyDashboard: function() {
+	console.log("pulling up energy iframe");
+	app.appScreen.hide();
+    app.addressList.hide();
+    app.contact_screen.hide();
+    app.personaliseScreen.hide();
+	app.energyScreen.show();	
 },
 
 showProgressList: function() {
@@ -1151,6 +1179,9 @@ returnToMainScreen: function() {
     app.iframe_enjoyment.hide();
     app.iframe_profile.hide();
     app.iframe_help.hide();
+    
+    app.energyScreen.hide();
+    
     $("div#other-specify").hide();
     
   // Show
