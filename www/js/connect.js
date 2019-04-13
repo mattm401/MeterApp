@@ -530,9 +530,9 @@ function connectionManager() {
             if (localStorage.getItem('AwaitAuthorisation') != null) {
                 checkAuthorisation();
             }
-          
-			      /* Realtime code */
-			      //TODO: Integrate this if statement into the code rather than always being on
+			
+			/* Realtime code */
+			//TODO: Integrate this if statement into the code rather than always being on
             //TODO: https://stackoverflow.com/questions/24313539/push-notifications-when-app-is-closed
             if (lastReadingCounter == 1){
               //console.log("Sending polling request to get meter data...")
@@ -595,7 +595,8 @@ function connectionManager() {
               lastReadingCounter = lastReadingCounter + 1;
             }  
 			/* End of Realtime code */
-			
+          
+		}	
     } else {
         console.log("Offline");
     }
