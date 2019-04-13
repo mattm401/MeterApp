@@ -19,6 +19,7 @@ var lastReadingCounter = 0;
 
 
 setInterval(connectionManager, 10000); //Begin connecting to server on intervals , in ms (default 10s)
+setInterval(hourlyChecks, 60*60*1000); // less frequently needed checks (1 hour)
 
 window.onerror = function(message, source, lineNumber) {
     //This doesn't trigger on every error (unreliable)
@@ -52,8 +53,6 @@ function uploadActivities() {
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
-            localStorage.setItem('Online', false);
-            //alert("Check internet connectivity");
         }
     });
 }
@@ -84,11 +83,6 @@ function requestMetaID(functionToExecuteNext){
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
-            localStorage.setItem('Online', false);
-            if (localStorage.getItem("consent")==null) {
-            }/* else { //Dont want to alert if they are still on consent screen
-                alert("Please check your internet connection");
-            }*/
         }
     });
 }
@@ -137,7 +131,6 @@ function requestAddresses(postcode){ //Requesting from API (or really our PHP wh
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             app.personaliseClick();
             console.log("Check server connection (to php): " + textStatus);
-            localStorage.setItem('Online', false);
             alert("Please check your internet connection");
         }
     });
@@ -156,10 +149,13 @@ function checkForAddress(address) { //Checks whether address is in our database
                 // household already exists
                 console.log("Got household id: " + response.split("#")[1]);
                 localStorage.setItem('household_id', response.split("#")[1]);
-                localStorage.removeItem('householdStatus'); // tells connection manager that linking needs to be done
+                // Change menu
+                app.screens['menu']['activities'][1] = "Authorise";
+                // Trigger linking
+                linkHousehold();
+                // go home
+                app.title.html(app.label.addressLinked);
                 app.returnToMainScreen();
-                app.title.html("Welcome - your household is registered.");
-                // XXX Request to update HH data > we email you]
             } else if (response.split("#")[0]=="0 results") {
                 // no such household yet > sign up form
                 console.log("0 results");
@@ -176,7 +172,6 @@ function checkForAddress(address) { //Checks whether address is in our database
             console.log(errorThrown);
             console.log(textStatus);
 
-            localStorage.setItem('Online', false);
             alert("Please check your internet connection");
         }
     });
@@ -200,21 +195,12 @@ function checkHHIntervention() {
                     d.setDate(d.getDate() + 1);      // intervention on Day 2
                     d.setTime( d.getTime() + d.getTimezoneOffset()*60*1000 );
                     var itvID = utils.actID(d).substring(0,19);
-
                     localStorage.setItem('intervention',itvID);
                     var activityList = utils.getList(ACTIVITY_LIST);
-                    var actIntStart = {'Meta_idMeta': "0", 
-                                  //'activity': "2h demand reduction from ",
-                                  //'category': 'intervention',
-                                  // 'dt_recorded': d,
-                                  'dt_activity': d, 
-                                  'key': 'intervention',
-                                  // "location"  : '0',
-                                  // "people"    : '0',
-                                  // "enjoyment" : '0',
-                                  // "tuc"       : '12000',
-                                  // "path"      : ''
-                                 };
+                    var actIntStart = {
+                                       'dt_activity': utils.getDateForSQL(d), 
+                                       'key': 'intervention',
+                                      };
                     activityList[itvID] = actIntStart;
                     utils.saveList(ACTIVITY_LIST, activityList);
 
@@ -230,7 +216,6 @@ function checkHHIntervention() {
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
-            localStorage.setItem('Online', false);
         }
     });
 }
@@ -242,24 +227,14 @@ function checkDateChoiceExpired() {
     d.setTime( d.getTime() + d.getTimezoneOffset()*60*1000 );
     d.setDate(d.getDate() + 1);      // end on Day 2 at 9pm
     var today = new Date();
-
     if (today > d) {
         localStorage.removeItem('dateChoice');
-
         var studyEndID = utils.actID(d).substring(0,19);
         var activityList = utils.getList(ACTIVITY_LIST);
-        var actStudyEnd = {'Meta_idMeta': "0", 
-                      //'activity': "Study completed ",
-        //               'category': 'study',
-                      'dt_recorded': d,
-                      'dt_activity': d, 
-                      'key': 'study end',
-        //                           "location"  : '0',
-        //                           "people"    : '0',
-        //                           "enjoyment" : '0',
-        //                           "tuc"       : '12000',
-        //                           "path"      : ''
-                     };
+        var actStudyEnd = {
+                           'dt_activity': utils.getDateForSQL(d), 
+                           'key': 'study end',
+                          };
         activityList[studyEndID] = actStudyEnd;
         utils.saveList(ACTIVITY_LIST, activityList);
         console.log("Study completed");
@@ -267,6 +242,25 @@ function checkDateChoiceExpired() {
     }
 }
 
+function checkInterventionExpired() {
+    var dt = localStorage.getItem('intervention');
+    var d = new Date(dt); // at 9pm
+    d.setTime( d.getTime() + d.getTimezoneOffset()*60*1000 );
+    d.setTime(d.getTime() + 2*60*1000);      // +2 hours end on Day 2 at 9pm
+    var now = new Date();
+    if (now > d) {
+        localStorage.removeItem('intervention');
+        var interventionEndID = utils.actID(d).substring(0,19);
+        var activityList = utils.getList(ACTIVITY_LIST);
+        var interventionEnd = { 'dt_activity': utils.getDateForSQL(d), 
+                           'key': 'intervention end',
+                          };
+        activityList[interventionEndID] = interventionEnd;
+        utils.saveList(ACTIVITY_LIST, activityList);
+        console.log("intervention over");
+        app.statusCheck();
+    }
+}
 
 function getHHDateChoice() {
     var request;
@@ -280,37 +274,25 @@ function getHHDateChoice() {
                 if (dateChoice != '2000-01-01') {         // default, i.e. no date chosen
                     var d = new Date(dateChoice); 
                     var today = new Date();
-                    if (d < today) {
+                    if (d > today) {
                         localStorage.setItem('dateChoice',dateChoice);
                         var d = new Date(dateChoice + 'T17:00:00'); // at 5pm
                         d.setTime( d.getTime() + d.getTimezoneOffset()*60*1000 );
-						//TODO: More intervention code changes
-						console.log("Study date is set!");
-                        app.statusCheck();
-                        /*var studyID = utils.actID(d).substring(0,19);
+                        var studyID = utils.actID(d).substring(0,19);
 
                         if (studyID != localStorage.setItem('studyID',studyID)) {
                                 // study date changed / is new
                                 localStorage.setItem('studyID',studyID);
                                 var activityList = utils.getList(ACTIVITY_LIST);
-                                var actStudyStart = {'Meta_idMeta': "0", 
-                                              // 'activity': "Study begins at ",
-                                              // 'dt_recorded': d,
-                                              'dt_activity': d, 
-                                              'key': 'study'
-                                              // 'category': 'study',
-                                              // "location"  : '0',
-                                              // "people"    : '0',
-                                              // "enjoyment" : '0',
-                                              // "tuc"       : '12000',
-                                              // "path"      : ''
-                                             };
+                                var actStudyStart = { 'dt_activity': utils.getDateForSQL(d), 
+                                                     'key': 'study'
+                                                    };
                                 activityList[studyID] = actStudyStart;
                                 utils.saveList(ACTIVITY_LIST, activityList);
 
                                 console.log("Study date is set!");
-                                app.statusCheck();
-                        }*/
+                        }
+
                     } else {
                         // date is past
                         console.log("Study date is outdated");
@@ -319,41 +301,35 @@ function getHHDateChoice() {
                     // no date was chosen
                     localStorage.removeItem('dateChoice'); // will keep checking
                 }
+            app.statusCheck();
             }
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
-            localStorage.setItem('Online', false);
         }
     });
 }
 
 
-function linkHousehold() {
+function linkHousehold(hhID) {
     var request;
     request = $.ajax({ //Send request to php
         url: linkHouseholdURL,
         type: "POST",
-        data: {household_id:localStorage.getItem('household_id'), metaID:localStorage.getItem('metaID')}, //send array of items
+        data: {household_id:hhID, metaID:localStorage.getItem('metaID')}, //send array of items
         success: function(response) {
             if (response.split("#")[0]=="Success") { //to confirm whether data has been inserted
                 console.log("Succesfully uploaded!");
                 console.log(response);
-                localStorage.setItem('householdStatus', "LINKED"); //so we can determine that it has successfully linked
-                // localStorage.setItem('householdSurvey', "COMPLETE"); // we don't actually know this - benefit of the doubt...
+                localStorage.setItem('householdStatus', "LINKED"); // stops further attempts
                 app.statusCheck();
             } else {
-                localStorage.removeItem('householdStatus'); // tells connection manager that linking needs to be done
-                // localStorage.setItem('householdStatus', "NOTLINKED"); //so we can determine that it has successfully linked
-                console.log("MySQL connection error" + response);
+                localStorage.removeItem('householdStatus'); // keep trying
             }
         },
-        error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
+        error: function(XMLHttpRequest, textStatus, errorThrown) { // for logging
             console.log("Check server connection (to php): " + textStatus);
-            localStorage.removeItem('householdStatus'); // tells connection manager that linking needs to be done
-            localStorage.setItem('Online', false);
-            // localStorage.setItem('householdStatus', "NOTLINKED"); //so we can determine that it has successfully linked
-            //alert("Check internet connectivity");
+            localStorage.removeItem('householdStatus'); // keep trying
         }
     });
 }
@@ -381,9 +357,8 @@ function checkAuthorisation() {
                 console.log("This meta ID is not authorised");
             }
         },
-        error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
+        error: function(XMLHttpRequest, textStatus, errorThrown) { // for logging
             console.log("error in checkAuthorisation");
-            localStorage.setItem('Online', false);
         }
     });
 }
@@ -400,15 +375,15 @@ function requestAutorisation() {
                 console.log("Email sent!");
                 console.log(response);
                 app.title.html("Autorisation requested. Please check the registered email.");
+                localStorage.setItem('AwaitAuthorisation', true);
                 $("div#other-specify").hide();
-
+                app.statusCheck();
             } else {
                 console.log("MySQL connection error" + response);
             }
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
-            localStorage.setItem('Online', false);
         }
     });
 }
@@ -430,8 +405,6 @@ function surveyUpload() {
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
-            localStorage.setItem('Online', false);
-            //alert("Check internet connectivity");
         }
     });
 }
@@ -465,31 +438,66 @@ function submitContactInfo() {
             console.log(XMLHttpRequest);
             console.log(textStatus);
             console.log(errorThrown);
-            localStorage.setItem('Online', false);
         }
     });
 }
-//TODO: This function is new and does not work with the current version of the backend
-function checkServer() {
+
+function online() {
     // assume the worst - no internet
-    /*var request;
-    request = $.ajax({ //Send request to php
+    var isOnline;
+    isOnline = true;
+    var request;
+    request = $.ajax({ //Send request tisOnlinephp
         url: checkServerURL,
         type: "POST",
-        data: {}, //send survey array
         success: function(response) {
             if (response == "Success") {
-                localStorage.setItem('Online', true);
+                // isOnline = true;
+                console.log("Online");
             }
         },
-        error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
-            console.log(XMLHttpRequest);
-            console.log(textStatus);
-            console.log(errorThrown);
-            localStorage.setItem('Online', false);
+        error: function() {
+            console.log("failed to check Onlineness");
+            isOnline = false;
         }
-    });*/
-	localStorage.setItem('Online', true);
+
+    });
+    return isOnline;
+}
+
+function checkServer() {
+    if (online()) {
+       localStorage.setItem('Online', true);
+    } else {
+       localStorage.removeItem('Online');
+    }
+}
+
+function hourlyChecks() {
+
+    if (localStorage.getItem('Online') == "true"){
+            // Has a participation date been set?
+            if (localStorage.getItem('household_id') != null && localStorage.getItem('dateChoice') == null) {
+                getHHDateChoice();
+            } 
+
+            // Does this date come with an intervention?
+            if (localStorage.getItem('dateChoice') != null && localStorage.getItem('intervention') == null) {
+                checkHHIntervention();
+            } 
+
+            // Is device authorised?
+            if (localStorage.getItem('household_id') != null && localStorage.getItem('sc') == null) {
+                checkAuthorisation();
+            }
+
+            if (localStorage.getItem("errorsToUpload")!=null && localStorage.getItem("errorsToUpload")!="") {
+                //If there is at least one error to upload
+                uploadErrorMessages();
+                console.log("there are errors...");
+            }
+    }
+    app.statusCheck();
 }
 
 function connectionManager() {
@@ -514,29 +522,17 @@ function connectionManager() {
 
             if(localStorage.getItem('household_id') != null && localStorage.getItem('householdStatus') == null) {
                 // This means we have got a hhid but havent linked to it yet
-                linkHousehold();
+                linkHousehold(localStorage.getItem('household_id'));
                 console.log("Linking household");
             } 
             
-            // Has a participation date been set?
-            if (localStorage.getItem('household_id') != null && localStorage.getItem('dateChoice') == null) {
-                getHHDateChoice();
-            } 
-
-            // Does this date come with an intervention?
-			//TODO: Also part of recent intervention ad; removed for now.
-            /*if (localStorage.getItem('dateChoice') != null && localStorage.getItem('intervention') == null) {
-                checkHHIntervention();
-            } */
-
-            if (localStorage.getItem("errorsToUpload")!=null && localStorage.getItem("errorsToUpload")!="") {
-                //If there is at least one error to upload
-                // uploadErrorMessages();
-                console.log("there are errors...");
-            } 
-			
-			/* Realtime code */
-			//TODO: Integrate this if statement into the code rather than always being on
+            // Is device authorised?
+            if (localStorage.getItem('AwaitAuthorisation') != null) {
+                checkAuthorisation();
+            }
+          
+			      /* Realtime code */
+			      //TODO: Integrate this if statement into the code rather than always being on
             //TODO: https://stackoverflow.com/questions/24313539/push-notifications-when-app-is-closed
             if (lastReadingCounter == 1){
               //console.log("Sending polling request to get meter data...")
@@ -600,7 +596,6 @@ function connectionManager() {
             }  
 			/* End of Realtime code */
 			
-		}
     } else {
         console.log("Offline");
     }
@@ -609,6 +604,12 @@ function connectionManager() {
     if (localStorage.getItem('dateChoice') != null) {
         checkDateChoiceExpired();
     } 
+    if (localStorage.getItem('intervention') != null) {
+        checkInterventionExpired();
+    } 
+    if (localStorage.getItem('sc') != null) {
+            localStorage.removeItem('AwaitAuthorisation'); 
+    }
 }
 
 
@@ -627,15 +628,15 @@ function receiveMessageIframe(message) {
     
     // Go Home (Nav bar)
     if (message.split("#")[0]=="Go home"){
-        app.returnToMainScreen();
         app.statusCheck();
+        app.returnToMainScreen();
     }
 
     // HH survey complete (hhq.php)
     if (message.split("#")[0]=="HH survey complete"){
-        app.returnToMainScreen();
         localStorage.setItem('householdSurvey', 'COMPLETE')
         app.statusCheck();
+        app.returnToMainScreen();
     }
 
     // Got date (date.php)
@@ -644,12 +645,11 @@ function receiveMessageIframe(message) {
         if (dateChoice != '2000-01-01') {         // default, i.e. no date chosen
             localStorage.setItem('dateChoice',dateChoice);
             console.log("Date set to this household " + dateChoice);
-            app.statusCheck();
         } else {
             localStorage.removeItem('dateChoice'); // will keep checking
         }
-        app.returnToMainScreen();
         app.statusCheck();
+        app.returnToMainScreen();
     }
 
     if (message.split("#")[0]=="Got Household ID"){
@@ -711,7 +711,6 @@ function uploadErrorMessages(){ //This sends errors to the SQL database
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { //not using these variables but could be useful for debugging
             console.log("Check server connection (to php): " + textStatus);
-            localStorage.setItem('Online', false);
         }
     });
 }
